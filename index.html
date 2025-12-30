@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EscapePM Smart TV</title>
+<style>
+body {
+  background: #111;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+/* TV Frame */
+.tv-frame {
+  width: 1200px;
+  height: 700px;
+  background: linear-gradient(to bottom, #222 0%, #111 100%);
+  border-radius: 25px;
+  border: 15px solid #222;
+  box-shadow: inset 0 0 40px #000, 0 0 60px #000;
+  position: relative;
+  display: flex;
+  overflow: hidden;
+}
+
+/* TV Screen */
+.tv-screen {
+  flex: 1;
+  background: black;
+  margin: 20px;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 25px #000;
+  transition: margin-left 0.5s ease;
+}
+.tv-screen::before {
+  content: "";
+  position: absolute;
+  top:0; left:0; width:100%; height:100%;
+  background: linear-gradient(45deg, rgba(255,255,255,0.06), transparent 70%);
+  pointer-events: none;
+  z-index:1;
+}
+.tv-screen iframe {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: none;
+  position: relative;
+  z-index:0;
+  opacity: 1;
+  transition: opacity 0.7s ease;
+}
+
+/* Overlays */
+.static-overlay, .commercial-overlay {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top:0; left:0;
+  pointer-events:none;
+  z-index:2;
+  opacity:0;
+  transition: opacity 0.7s ease;
+}
+.commercial-overlay {
+  background: rgba(0,0,0,0.8);
+  color:white;
+  font-size:28px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  z-index:3;
+}
+
+/* Samsung Logo */
+.samsung-logo {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 140px;
+  z-index:5;
+}
+
+/* Bottom Buttons */
+.bezel-buttons {
+  position: absolute;
+  bottom: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  z-index:6;
+  align-items: center;
+}
+.bezel-buttons button, .bezel-buttons input {
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+  color: white;
+  padding: 8px;
+  background: #333;
+  transition: all 0.2s;
+}
+.bezel-buttons button:hover, .bezel-buttons input:hover { background: #555; }
+.bezel-buttons button:active { transform: translateY(2px); box-shadow: 0 0 8px #0ff inset; }
+
+/* Power button */
+.power-btn {
+  background: red;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-weight:bold;
+  font-size:20px;
+  box-shadow: 0 0 10px rgba(255,0,0,0.6);
+  transition: box-shadow 0.2s;
+}
+
+/* Slide-out remote */
+.remote {
+  position: absolute;
+  top: 50%;
+  right: -160px;
+  transform: translateY(-50%);
+  width: 160px;
+  background: #222;
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: right 0.5s ease;
+  z-index:7;
+  box-shadow: 0 0 15px #000;
+}
+.remote.show { right: 10px; }
+.remote button, .remote input { width: 100%; cursor:pointer; font-size:14px; padding:6px; border:none; border-radius:6px; background:#333; color:white; }
+.remote button:active { transform: translateY(1px); box-shadow:0 0 5px #0ff inset; }
+
+/* Slide-out TV Guide */
+.tv-guide {
+  position: absolute;
+  top:0;
+  left: -320px;
+  width: 300px;
+  height: 100%;
+  background: #111;
+  color: white;
+  overflow-y: auto;
+  padding: 10px;
+  border-right: 2px solid #333;
+  box-shadow: inset 0 0 20px #000;
+  border-radius: 0 0 0 12px;
+  transition: left 0.5s ease;
+  z-index:8;
+}
+.tv-guide.show { left: 0; }
+
+.channel-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+.channel-item:hover { background: #333; transform: scale(1.03);}
+.channel-item.active { background:#444; transform: scale(1.05);}
+.channel-item img { width:40px; height:40px; border-radius:50%; }
+.channel-item span { font-weight:bold; }
+
+/* Settings menu */
+.settings-overlay {
+  position:absolute;
+  top:0; left:-440px;
+  width:440px; height:100%;
+  background:#222;
+  color:white;
+  display:flex; flex-direction:column;
+  z-index:10;
+  padding:15px;
+  transition:left 0.5s ease;
+}
+.settings-overlay.show { left:0; }
+.settings-overlay h2 { margin-top:0; margin-bottom:10px; }
+.settings-overlay .menu-tabs { display:flex; gap:5px; margin-bottom:10px; }
+.settings-overlay .menu-tabs button { flex:1; padding:8px; background:#333; border:none; border-radius:5px; color:white; cursor:pointer; }
+.settings-overlay .menu-tabs button.active { background:#555; }
+.settings-overlay .menu-content { flex:1; overflow-y:auto; }
+
+/* Channel edit */
+.channel-row {
+  display:flex;
+  flex-wrap:wrap;              /* allows wrapping */
+  gap:6px;
+  align-items:center;
+  margin-bottom:8px;
+}
+.channel-row input.logo-input {
+  flex:1 1 100%;               /* full width */
+  min-width:100%;
+}
+</style>
+</head>
+<body>
+
+<div class="tv-frame">
+
+  <!-- TV Screen -->
+  <div class="tv-screen" id="tv-screen">
+    <iframe id="tv-iframe" src="" allow="autoplay" allowfullscreen></iframe>
+    <iframe class="static-overlay" id="static-overlay" src="https://www.youtube.com/embed/n5Q4Y5nLvrg?autoplay=1&mute=1&loop=1&playlist=n5Q4Y5nLvrg&controls=0&showinfo=0&modestbranding=1"></iframe>
+    <div class="commercial-overlay" id="commercial-overlay">COMMERCIAL BREAK</div>
+  </div>
+
+  <!-- Samsung Logo -->
+  <img class="samsung-logo" src="https://www.wearepriority.com/wp-content/uploads/2019/02/samsung-logo-white.png" alt="Samsung Logo">
+
+  <!-- Bottom bezel buttons -->
+  <div class="bezel-buttons">
+    <button class="arrow-btn" id="prev-btn">&#8592;</button>
+    <button class="mute-btn" id="mute-btn">&#128263;</button>
+    <button class="arrow-btn" id="next-btn">&#8594;</button>
+    <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="50">
+    <button class="power-btn" id="power-btn">&#x23FB;</button>
+    <button id="toggle-remote">Remote</button>
+  </div>
+
+  <!-- Remote -->
+  <div class="remote" id="remote-panel">
+    <button id="r-power">Power</button>
+    <button id="r-prev">&#8592; Prev</button>
+    <button id="r-next">Next &#8594;</button>
+    <button id="r-mute">Mute</button>
+    <input type="range" id="r-volume" min="0" max="100" value="50">
+    <button id="r-guide">Guide</button>
+    <button id="r-settings">Settings</button>
+  </div>
+
+  <!-- TV Guide -->
+  <div class="tv-guide" id="tv-guide"></div>
+
+  <!-- Settings Overlay -->
+  <div class="settings-overlay" id="settings-overlay">
+    <h2>TV Settings</h2>
+    <div class="menu-tabs">
+      <button class="tab-btn active" data-tab="guide">TV Guide</button>
+      <button class="tab-btn" data-tab="edit">Edit Channels</button>
+      <button class="tab-btn" data-tab="add">Add Channel</button>
+      <button class="tab-btn" data-tab="other">Other Settings</button>
+    </div>
+    <div class="menu-content" id="settings-content"></div>
+  </div>
+
+</div>
+
+<audio id="click-sfx" src="https://www.soundjay.com/buttons/sounds/button-16.mp3"></audio>
+<audio id="mute-sfx" src="https://www.soundjay.com/buttons/sounds/button-09.mp3"></audio>
+<audio id="power-sfx" src="https://www.soundjay.com/buttons/sounds/button-3.mp3"></audio>
+
+<script>
+// Channel list
+let channels = JSON.parse(localStorage.getItem('tv-channels')) || [
+    {name:"EscapePM", channel:"EscapePM"},
+    {name:"WhoGotKey", channel:"WhoGotKey"},
+    {name:"BetterThanDre", channel:"Betterthandre"},
+    {name:"Blaze1xxLive", channel:"Blaze1xxlive"},
+    {name:"cinnywinny", channel:"cinnywinny"},
+    {name:"Hentrap", channel:"Hentrap"},
+    {name:"Piematt7_", channel:"Piematt7_"},
+    {name:"Aksorude", channel:"aksorude"},
+    {name:"ZeroGravityGamez", channel:"ZeroGravityLIVE"},
+    {name:"KinleysWRLD", channel:"KinleysWRLD"},
+    {name:"MoneyMitchOG", channel:"MoneyMitchOG"},
+    {name:"Eckto", channel:"Eckto"},
+    {name:"Rfljaden", channel:"rfljaden"},
+    {name:"RegularShow", youtube:"https://www.youtube.com/embed/CwKawR9Se5o?autoplay=1&controls=1"},
+    {name:"SpongeBob", youtube:"https://www.youtube.com/embed/NC5JgC4FDCw?autoplay=1&controls=1"},
+    {name:"Gumball", youtube:"https://www.youtube.com/embed/nIyaCRNwxhU?autoplay=1&controls=1&loop=1"},
+    {name:"Adventure Time", youtube:"https://www.youtube.com/embed/uZkaJ3e9nfY?autoplay=1&controls=1&loop=1"}
+];
+
+let currentIndex=0, muted=false, poweredOn=true;
+
+const iframe=document.getElementById('tv-iframe');
+const tvGuide=document.getElementById('tv-guide');
+const staticOverlay=document.getElementById('static-overlay');
+const commercialOverlay=document.getElementById('commercial-overlay');
+const remotePanel=document.getElementById('remote-panel');
+const settingsOverlay=document.getElementById('settings-overlay');
+const settingsContent=document.getElementById('settings-content');
+
+const powerSFX=document.getElementById('power-sfx');
+const clickSFX=document.getElementById('click-sfx');
+const muteSFX=document.getElementById('mute-sfx');
+
+function fetchTwitchIcon(username){ return `https://static-cdn.jtvnw.net/jtv_user_pictures/${username}-profile_image-70x70.png`; }
+
+// TV Guide
+function buildTVGuide(){
+    tvGuide.innerHTML='';
+    channels.forEach((c,i)=>{
+        const div=document.createElement('div');
+        div.className='channel-item';
+        div.dataset.index=i;
+        const img=document.createElement('img');
+        img.src=c.logo || (c.youtube ? "https://upload.wikimedia.org/wikipedia/en/3/30/The_Amazing_World_of_Gumball_logo.png" : fetchTwitchIcon(c.channel));
+        const span=document.createElement('span'); span.textContent=`${i+1} - ${c.name}`;
+        div.appendChild(img); div.appendChild(span);
+        div.onclick=()=>{currentIndex=i; clickSFX.play(); showStaticOverlay(); updateChannel(); showCommercial();}
+        tvGuide.appendChild(div);
+    });
+}
+
+function highlightChannel(){ document.querySelectorAll('.channel-item').forEach((el,i)=> el.classList.toggle('active',i===currentIndex)); }
+
+function updateChannel(){
+    if(!poweredOn) return;
+    iframe.style.opacity=0;
+    setTimeout(()=>{
+        const c=channels[currentIndex];
+        iframe.src=c.youtube ? c.youtube : `https://streamgood.gg/clips/player?mode=random&current_game=false&info=false&volume=${muted?0:50}&max_length=60&filter_long_videos=false&show_timer=false&recent_clips=0&channel=${c.channel}`;
+        iframe.onload=()=>{iframe.style.opacity=1;}
+        highlightChannel();
+    },400);
+}
+
+function showStaticOverlay(duration=1200){ staticOverlay.style.opacity=1; setTimeout(()=>staticOverlay.style.opacity=0,duration);}
+function showCommercial(){ commercialOverlay.style.opacity=1; setTimeout(()=>commercialOverlay.style.opacity=0,5000);}
+function nextChannel(){ currentIndex=(currentIndex+1)%channels.length; clickSFX.play(); showStaticOverlay(); updateChannel(); showCommercial();}
+function prevChannel(){ currentIndex=(currentIndex-1+channels.length)%channels.length; clickSFX.play(); showStaticOverlay(); updateChannel(); showCommercial();}
+function togglePower(){ poweredOn=!poweredOn; powerSFX.play(); if(!poweredOn){iframe.src='';}else updateChannel();}
+function toggleMute(){ muted=!muted; muteSFX.play(); updateChannel(); }
+
+// Remote buttons
+document.getElementById('next-btn').onclick=nextChannel;
+document.getElementById('prev-btn').onclick=prevChannel;
+document.getElementById('power-btn').onclick=togglePower;
+document.getElementById('mute-btn').onclick=toggleMute;
+document.getElementById('volume-slider').oninput=function(){};
+
+document.getElementById('toggle-remote').onclick=()=>remotePanel.classList.toggle('show');
+document.getElementById('r-power').onclick=togglePower;
+document.getElementById('r-mute').onclick=toggleMute;
+document.getElementById('r-next').onclick=nextChannel;
+document.getElementById('r-prev').onclick=prevChannel;
+
+// TV Guide toggle
+document.getElementById('r-guide').onclick=()=>{
+    tvGuide.classList.toggle('show');
+    document.getElementById('tv-screen').style.marginLeft=tvGuide.classList.contains('show')?'320px':'20px';
+};
+
+// Settings toggle
+document.getElementById('r-settings').onclick=()=>settingsOverlay.classList.toggle('show');
+
+// Settings menu logic
+function renderSettingsTab(tab){
+    settingsContent.innerHTML='';
+    if(tab==='guide'){
+        channels.forEach((c,i)=>{
+            const div=document.createElement('div'); div.className='channel-row';
+            const span=document.createElement('span'); span.textContent=`${i+1}. ${c.name}`;
+            div.appendChild(span); settingsContent.appendChild(div);
+        });
+    } else if(tab==='edit'){
+        channels.forEach((c,i)=>{
+            const row=document.createElement('div'); row.className='channel-row';
+            const inputName=document.createElement('input'); inputName.value=c.name;
+            const inputLink=document.createElement('input'); inputLink.value=c.channel||c.youtube||c.url||'';
+            const selectType=document.createElement('select');
+            ['twitch','youtube','url'].forEach(t=>{
+                const option=document.createElement('option'); option.value=t; option.text=t;
+                if((t==='youtube'&&c.youtube) || (t==='twitch'&&c.channel) || (t==='url'&&c.url)) option.selected=true;
+                selectType.appendChild(option);
+            });
+            const inputLogo=document.createElement('input'); inputLogo.className='logo-input'; inputLogo.value=c.logo||''; inputLogo.placeholder='Logo URL';
+            const delBtn=document.createElement('button'); delBtn.textContent='Remove';
+            delBtn.onclick=()=>{ channels.splice(i,1); saveChannels(); buildTVGuide(); renderSettingsTab('edit'); }
+            inputName.onchange=inputLink.onchange=inputLogo.onchange=selectType.onchange=()=>{ 
+                c.name=inputName.value; c.logo=inputLogo.value;
+                if(selectType.value==='youtube'){ c.youtube=inputLink.value; delete c.channel; delete c.url;}
+                else if(selectType.value==='twitch'){ c.channel=inputLink.value; delete c.youtube; delete c.url;}
+                else{ c.url=inputLink.value; delete c.channel; delete c.youtube;}
+                saveChannels(); buildTVGuide(); 
+            };
+            row.appendChild(inputName); row.appendChild(inputLink); row.appendChild(selectType); row.appendChild(inputLogo); row.appendChild(delBtn);
+            settingsContent.appendChild(row);
+        });
+    } else if(tab==='add'){
+        const form=document.createElement('div'); form.className='channel-row';
+        const inputName=document.createElement('input'); inputName.placeholder='Name';
+        const inputLink=document.createElement('input'); inputLink.placeholder='Link';
+        const selectType=document.createElement('select');
+        ['twitch','youtube','url'].forEach(t=>{ const o=document.createElement('option'); o.value=t; o.text=t; selectType.appendChild(o); });
+        const inputLogo=document.createElement('input'); inputLogo.className='logo-input'; inputLogo.placeholder='Logo URL';
+        const addBtn=document.createElement('button'); addBtn.textContent='Add Channel';
+        addBtn.onclick=()=>{
+            const newC={name:inputName.value, logo:inputLogo.value};
+            if(selectType.value==='youtube') newC.youtube=inputLink.value;
+            else if(selectType.value==='twitch') newC.channel=inputLink.value;
+            else newC.url=inputLink.value;
+            channels.push(newC); saveChannels(); buildTVGuide(); renderSettingsTab('add');
+            inputName.value=''; inputLink.value=''; inputLogo.value='';
+        };
+        form.appendChild(inputName); form.appendChild(inputLink); form.appendChild(selectType); form.appendChild(inputLogo); form.appendChild(addBtn);
+        settingsContent.appendChild(form);
+    } else if(tab==='other'){ settingsContent.innerHTML='<p>Other TV Settings here (color, overlay, etc)</p>'; }
+}
+
+function saveChannels(){ localStorage.setItem('tv-channels',JSON.stringify(channels)); }
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.onclick=()=>{
+        document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        renderSettingsTab(btn.dataset.tab);
+    }
+});
+
+// Initialize
+buildTVGuide();
+updateChannel();
+renderSettingsTab('guide');
+</script>
+</body>
+</html>
